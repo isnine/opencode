@@ -98,7 +98,7 @@ export namespace ProviderTransform {
         const nextMsg = msgs[i + 1]
 
         if ((msg.role === "assistant" || msg.role === "tool") && Array.isArray(msg.content)) {
-          msg.content = (msg.content.map((part) => {
+          msg.content = msg.content.map((part) => {
             if ((part.type === "tool-call" || part.type === "tool-result") && "toolCallId" in part) {
               // Mistral requires alphanumeric tool call IDs with exactly 9 characters
               const normalizedId = part.toolCallId
@@ -112,7 +112,7 @@ export namespace ProviderTransform {
               }
             }
             return part
-          })) as typeof msg.content
+          }) as typeof msg.content
         }
 
         result.push(msg)
@@ -166,6 +166,26 @@ export namespace ProviderTransform {
 
         return msg
       })
+    }
+
+    // GitHub Copilot Chat API does not support assistant message prefill -
+    // the conversation must end with a user message. When the last message
+    // is an assistant message (e.g. MAX_STEPS prompt), wrap it as a user
+    // system-reminder instead. This only applies to models routed through
+    // the Chat API (non-GPT-5+), since the Responses API handles prefill.
+    if (model.api.npm === "@ai-sdk/github-copilot") {
+      const gptMatch = /^gpt-(\d+)/.exec(model.api.id)
+      const usesResponsesApi = gptMatch && Number(gptMatch[1]) >= 5 && !model.api.id.startsWith("gpt-5-mini")
+      if (!usesResponsesApi && msgs.length > 0 && msgs[msgs.length - 1].role === "assistant") {
+        const last = msgs[msgs.length - 1]
+        const text = typeof last.content === "string" ? last.content : ""
+        if (text) {
+          msgs[msgs.length - 1] = {
+            role: "user",
+            content: `<system-reminder>\n${text}\n</system-reminder>`,
+          }
+        }
+      }
     }
 
     return msgs

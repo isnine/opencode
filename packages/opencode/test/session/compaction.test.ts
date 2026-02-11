@@ -320,7 +320,8 @@ describe("session.getUsage", () => {
       },
     })
 
-    expect(result.tokens.input).toBe(1000)
+    // Anthropic excludes cached tokens from inputTokens, so adjustedInputTokens = inputTokens
+    expect(result.tokens.input).toBe(1200)
     expect(result.tokens.cache.read).toBe(200)
   })
 
@@ -397,6 +398,15 @@ describe("session.getUsage", () => {
         // excluding cache read/write.
         totalTokens: 1500,
         cachedInputTokens: 200,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
       }
       if (npm === "@ai-sdk/amazon-bedrock") {
         const result = Session.getUsage({

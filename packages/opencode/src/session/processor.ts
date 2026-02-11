@@ -219,6 +219,26 @@ export namespace SessionProcessor {
                   }
                   break
                 }
+                case "tool-output-denied": {
+                  const match = toolcalls[value.toolCallId]
+                  if (match && match.state.status === "running") {
+                    await Session.updatePart({
+                      ...match,
+                      state: {
+                        status: "error",
+                        input: match.state.input,
+                        error: "Tool output denied",
+                        time: {
+                          start: match.state.time.start,
+                          end: Date.now(),
+                        },
+                      },
+                    })
+                    delete toolcalls[value.toolCallId]
+                  }
+                  break
+                }
+
                 case "error":
                   throw value.error
 
@@ -244,7 +264,7 @@ export namespace SessionProcessor {
                   input.assistantMessage.tokens = usage.tokens
                   await Session.updatePart({
                     id: Identifier.ascending("part"),
-                    reason: value.finishReason,
+                    reason: value.finishReason ?? "other",
                     snapshot: await Snapshot.track(),
                     messageID: input.assistantMessage.id,
                     sessionID: input.assistantMessage.sessionID,
